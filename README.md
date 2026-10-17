@@ -59,9 +59,6 @@ See <a href="./LICENSE">LICENSE</a> for details.
 ---
 
 <div align="center">
-
-<h3>🎶 Keep playing. Keep learning. Enjoy the music!</h3>
-
 <strong>Your music. Your tabs. Your workflow.</strong>
 
 </div>
