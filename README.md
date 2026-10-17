@@ -25,7 +25,8 @@ Community feedback matters. If something works, we shouldn't break it.
 
 <h2>🎵 BYOM — Bring Your Own Music</h2>
 
-<strong>We provide the software. You provide the music.</strong>
+<strong>We provide the software. You provide your own music,
+    locally on your computer or server.</strong>
 
 No songs, recordings, videos, or sample tabs are intended to be distributed with this project.
 
