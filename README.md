@@ -15,7 +15,7 @@
 
 I wanted a free alternative that respects users' time and work.
 
-No forced interface changes, no unnecessary disruptions, and no losing hours of work because of an update.
+No forced interface changes, no unnecessary disruptions, and no losing hours of work or practice because of an update.
 
 Development versions will be available for testing major changes before they reach stable releases.
 
