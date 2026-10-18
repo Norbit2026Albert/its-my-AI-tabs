@@ -41,7 +41,7 @@ Users are responsible for the content they import and share, including any neces
 <ul>
   <li>🎸 Guitar Pro tablature playback works.</li>
   <li>🎬 MP4 video support is experimental.</li>
-  <li>🤖 OpenMuik AI transcription is planned.</li>
+ 
 </ul>
 
 ---
