@@ -22,10 +22,12 @@ import {
     getTabFilePath,
     getTabFolderPath,
     getTabFullFilePath,
+    getTabVersions,
     recordTabAccess,
     removeAudio,
     removeYoutube,
     replaceTab,
+    restoreTabVersion,
     updateAudio,
     updateConfigJSON,
     updateTab,
@@ -367,6 +369,29 @@ export async function main() {
         }
     });
 
+    // List historical tab files
+    app.get("/api/tab/:id/versions", async (c) => {
+        try {
+            await checkLogin(c);
+            const tab = await getTab(c.req.param("id"));
+            return c.json({ ok: true, versions: await getTabVersions(tab) });
+        } catch (e) {
+            return generalError(c, e);
+        }
+    });
+
+    // Restoring archives the current file first, preserving the full history.
+    app.post("/api/tab/:id/versions/:versionId/restore", async (c) => {
+        try {
+            await checkLogin(c);
+            const tab = await getTab(c.req.param("id"));
+            await restoreTabVersion(tab, c.req.param("versionId"));
+            return c.json({ ok: true });
+        } catch (e) {
+            return generalError(c, e);
+        }
+    });
+
     // Delete Tab
     app.delete("/api/tab/:id", async (c) => {
         try {
@@ -577,6 +602,7 @@ export async function main() {
             let mimeList: Record<string, string> = {
                 "mp3": "audio/mpeg",
                 "ogg": "audio/ogg",
+                "mp4": "video/mp4",
             };
 
             const ext = filename.split(".").pop()?.toLowerCase();

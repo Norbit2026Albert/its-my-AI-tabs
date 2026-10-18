@@ -1,12 +1,12 @@
-$dark1: #1c2024;
-$color2-dark: #535d65;
+$dark1: #15191c;
+$color2-dark: #929ca1;
 
 // Bootstrap Override
-$primary: #3131c6;
-$link-color-dark: #b0c5d5;
-$link-hover-color-dark: white;
-$border-color-dark: #222;
-$border-radius: 3px;
+$primary: #c8f169;
+$link-color-dark: #d7e2dc;
+$link-hover-color-dark: #c8f169;
+$border-color-dark: #30383a;
+$border-radius: 8px;
 $form-check-input-bg: $dark1;
-$checkbox-border-color-dark: #b0c5d5;
+$checkbox-border-color-dark: #929ca1;
 $form-check-input-border: var(--bs-border-width) solid #{$checkbox-border-color-dark};

@@ -37,8 +37,7 @@ const routes: RouteRecordRaw[] = [
                         path: "/tab/:id/edit/tab-file",
                         component: TabConfig,
                     },
-                    {
-                        name: "tabNew",
+                    {                         path: "/tab/:id/edit/versions",                         component: TabConfig,                     },                     {                         name: "tabNew",
                         path: "/new-tab",
                         component: TabNew,
                     },

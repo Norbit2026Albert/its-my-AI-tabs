@@ -50,7 +50,7 @@ export default defineComponent({
         <div class="my-navbar">
             <Logo />
 
-            <div class="toolbar">
+            <div class="toolbar" v-if="!fixedNavbar">
                 <div class="left" v-show="ready">
                     <router-link to="/" v-if="isLoggedIn">
                         <font-awesome-icon :icon='["fas", "folder"]' />
@@ -102,21 +102,20 @@ $navHeight: 100px;
         z-index: 1000;
         width: 100vw;
         margin-bottom: 0;
-        background-color: #212529;
+        background-color: #000;
+        backdrop-filter: blur(16px);
     }
 }
 
 .my-navbar {
     height: $navHeight;
-    border-bottom: 1px solid #3c3b40;
+    border-bottom: 1px solid rgba(200, 241, 105, 0.14);
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     margin-bottom: 20px;
-
-    [data-bs-theme="light"] & {
-        border-bottom-color: #dadada;
-    }
+    background: #000;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
 
     .toolbar {
         padding: 0 30px 0 40px;
@@ -141,14 +140,22 @@ $navHeight: 100px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-
-                // item from top to bottom
                 flex-direction: column;
+                gap: 5px;
+                color: #aab5b0;
+                font-size: 0.82rem;
+                font-weight: 600;
+                transition: color 0.18s ease, transform 0.18s ease;
+
+                &:hover {
+                    color: #c8f169;
+                    transform: translateY(-1px);
+                }
             }
         }
 
         svg {
-            font-size: 20px;
+            font-size: 18px;
         }
     }
 }

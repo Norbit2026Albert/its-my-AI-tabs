@@ -25,8 +25,11 @@ export default defineComponent({
             filePath: "",
             tabFiles: [],
             audioFiles: [],
+            tabVersions: [],
             isLoading: true,
             isUploading: false,
+            isLoadingVersions: false,
+            restoringVersionId: "",
             showOpenButtons: false,
             separateBusy: false,
             separateJob: null,
@@ -39,6 +42,9 @@ export default defineComponent({
 
         try {
             await this.load();
+            if (this.page === "versions") {
+                await this.loadVersions();
+            }
         } catch (e) {
             generalError(e);
         }
@@ -57,6 +63,14 @@ export default defineComponent({
     },
     beforeUnmount() {
         this.stopSeparatePolling();
+    },
+    watch: {
+        "$route.path"(path) {
+            this.page = path.split("/").pop();
+            if (this.page === "versions") {
+                this.loadVersions();
+            }
+        },
     },
     methods: {
         async load() {
@@ -101,6 +115,51 @@ export default defineComponent({
                 });
             } catch (e) {
                 generalError(e);
+            }
+        },
+        async loadVersions() {
+            this.isLoadingVersions = true;
+            try {
+                const res = await fetch(baseURL + `/api/tab/${this.tabID}/versions`, {
+                    credentials: "include",
+                });
+                await checkFetch(res);
+                const data = await res.json();
+                this.tabVersions = data.versions;
+            } catch (e) {
+                generalError(e);
+            } finally {
+                this.isLoadingVersions = false;
+            }
+        },
+        formatVersionDate(value) {
+            return new Date(value).toLocaleString();
+        },
+        formatVersionSize(size) {
+            if (size < 1024) {
+                return `${size} B`;
+            }
+            return `${(size / 1024).toFixed(1)} KB`;
+        },
+        async restoreVersion(version) {
+            if (!confirm(`Restore this ${version.format.toUpperCase()} version? The current tab will be saved in history first.`)) {
+                return;
+            }
+
+            this.restoringVersionId = version.id;
+            try {
+                const res = await fetch(baseURL + `/api/tab/${this.tabID}/versions/${encodeURIComponent(version.id)}/restore`, {
+                    method: "POST",
+                    credentials: "include",
+                });
+                await checkFetch(res);
+                notify({ text: "Tab version restored. The previous current version is also in history.", type: "success" });
+                await this.load();
+                await this.loadVersions();
+            } catch (e) {
+                generalError(e);
+            } finally {
+                this.restoringVersionId = "";
             }
         },
         async addYoutube() {
@@ -540,6 +599,9 @@ export default defineComponent({
             });
         },
 
+        isVideoFile(filename) {
+            return /\.mp4$/i.test(filename);
+        },
         getAudioURL(tabID, filename) {
             return baseURL + `/api/tab/${tabID}/audio/${encodeURIComponent(filename)}`;
         },
@@ -599,8 +661,9 @@ export default defineComponent({
         <div class="menu">
             <div class="btn-group" role="group">
                 <router-link :to="`/tab/${tab.id}/edit/info`" class="btn btn-secondary">Info</router-link>
-                <router-link :to="`/tab/${tab.id}/edit/audio`" class="btn btn-secondary">Youtube & Audio files</router-link>
+                <router-link :to="`/tab/${tab.id}/edit/audio`" class="btn btn-secondary">YouTube, Audio & Video files</router-link>
                 <router-link :to="`/tab/${tab.id}/edit/tab-file`" class="btn btn-secondary">Tab file</router-link>
+                <router-link :to="`/tab/${tab.id}/edit/versions`" class="btn btn-secondary">Version history</router-link>
             </div>
         </div>
 
@@ -690,13 +753,14 @@ export default defineComponent({
             </div>
 
             <div class="mb-5">
-                <h3 class="mb-5">Audio files</h3>
+                <h3 class="mb-5">Audio & video files</h3>
 
                 <div class="mb-5">
                     <div v-for="audio in audioList" class="audio-item mb-3 pb-3" :key="audio.id">
                         <div>
                             <div class="mb-2">
-                                <audio :src="getAudioURL(tabID, audio.filename)" controls></audio>
+                                <video v-if="isVideoFile(audio.filename)" :src="getAudioURL(tabID, audio.filename)" controls preload="metadata" playsinline style="width: 100%; max-width: 640px;"></video>
+                                <audio v-else :src="getAudioURL(tabID, audio.filename)" controls></audio>
                             </div>
 
                             <a :href="getAudioURL(tabID, audio.filename)" target="_blank">{{ audio.filename }}</a>
@@ -710,7 +774,7 @@ export default defineComponent({
                                 @update:simpleSync="audio.simpleSync = $event"
                                 @update:advancedSync="audio.advancedSync = $event"
                             />
-                            <div v-if="!isSeparatedStem(audio.filename)">
+                            <div v-if="!isSeparatedStem(audio.filename) && !isVideoFile(audio.filename)">
                                 <div class="btn-group mb-3">
                                     <button
                                         class="btn btn-outline-secondary"
@@ -766,16 +830,16 @@ export default defineComponent({
                 <Vue3Dropzone
                     ref="audioDropzone"
                     v-model="audioFiles"
-                    :maxFileSize="100"
+                    :maxFileSize="300"
                     @error="dropzoneError"
                 >
                     <template #placeholder-img>&nbsp;
                     </template>
                     <template #title>
-                        Drop your audio file here
+                        Drop your audio or MP4 video file here
                     </template>
                     <template #description>
-                        Formats: mp3, ogg, flac (flac will be converted to ogg)
+                        Formats: mp3, ogg, flac, mp4 (flac will be converted to ogg). Maximum: 300 MB.
                     </template>
                 </Vue3Dropzone>
 
@@ -786,6 +850,25 @@ export default defineComponent({
                 >
                     {{ isUploading ? "Uploading..." : "Upload" }}
                 </button>
+            </div>
+        </div>
+
+        <div v-else-if='this.page === "versions"' class="mb-5">
+            <h2 class="mt-4 mb-4">Version History</h2>
+            <p>Previous tab files are kept when you replace or restore a version. Restoring a version saves the current tab to history first.</p>
+
+            <div v-if="isLoadingVersions" class="my-4">Loading versions...</div>
+            <div v-else-if="tabVersions.length === 0" class="my-4">No previous versions yet. Replace the tab file to create the first saved version.</div>
+            <div v-else class="list-group">
+                <div v-for="version in tabVersions" :key="version.id" class="list-group-item d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div>
+                        <strong>{{ version.format.toUpperCase() }} tab</strong>
+                        <div>{{ formatVersionDate(version.createdAt) }} Â· {{ formatVersionSize(version.size) }}</div>
+                    </div>
+                    <button class="btn btn-secondary" @click="restoreVersion(version)" :disabled="restoringVersionId !== ''">
+                        {{ restoringVersionId === version.id ? "Restoring..." : "Restore this version" }}
+                    </button>
+                </div>
             </div>
         </div>
 

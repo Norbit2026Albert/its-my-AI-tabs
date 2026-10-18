@@ -15,9 +15,9 @@ const hideFooter = computed(() => route.meta?.hideFooter);
         <router-view :key="route.fullPath" />
 
         <footer v-if="!hideFooter" class="my-5">
-            It's MyTabs
+            It's My AI Tabs
             <span class="version me-3">{{ version }}</span>
-            <a href="https://github.com/louislam/its-mytabs" target="_blank">GitHub</a>
+            <a href="https://github.com/Norbit2026Albert/its-my-AI-tabs" target="_blank" rel="noopener noreferrer">GitHub</a>
         </footer>
 
         <notifications position="bottom right" />

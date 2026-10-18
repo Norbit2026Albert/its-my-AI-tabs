@@ -8,18 +8,27 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 // 2) add the icon name to the library.add() statement below.
 import {
     faArrowLeft,
+    faArrowRotateLeft,
     faArrowRightFromBracket,
     faArrowRightToBracket,
+    faBars,
     faCheck,
+    faDrum,
     faFile,
+    faKeyboard,
+    faGuitar,
     faFolder,
     faGear,
+    faHeadphones,
     faMagnifyingGlass,
+    faMusic,
     faPause,
     faPen,
     faPlay,
     faPlus,
+    faRepeat,
     faStar,
+    faStopwatch,
     faTrash,
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
@@ -27,6 +36,8 @@ import { faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons";
 
 library.add([
     faFile,
+    faKeyboard,
+    faGuitar,
     faFolder,
     faGear,
     faArrowRightFromBracket,
@@ -36,12 +47,19 @@ library.add([
     faCheck,
     faXmark,
     faArrowRightToBracket,
+    faBars,
     faMagnifyingGlass,
     faStar,
     faStarRegular,
     faArrowLeft,
+    faArrowRotateLeft,
     faPen,
     faTrash,
+    faDrum,
+    faHeadphones,
+    faMusic,
+    faRepeat,
+    faStopwatch,
 ]);
 
 export { FontAwesomeIcon };

@@ -55,6 +55,7 @@ export default defineComponent({
             youtube: {},
             tabID: -1,
             tracks: [],
+            expandedInstrumentGroups: {},
             showTrackList: false,
             showAudioList: false,
             tab: {},
@@ -115,6 +116,23 @@ export default defineComponent({
         };
     },
     computed: {
+        instrumentGroups() {
+            const families = [
+                "Piano", "Chromatic Percussion", "Organ", "Guitar", "Bass", "Strings", "Ensemble", "Brass",
+                "Reed", "Pipe", "Synth Lead", "Synth Pad", "Synth Effects", "Ethnic", "Percussive", "Sound Effects",
+            ];
+            const groups = new Map();
+            for (const track of this.tracks) {
+                const family = track.isPercussion ? "Drums" : families[Math.floor(track.program / 8)];
+                const key = family ?? `track-${track.id}`;
+                if (!groups.has(key)) {
+                    groups.set(key, { key, name: family ?? track.name, tracks: [] });
+                }
+                groups.get(key).tracks.push(track);
+            }
+            return Array.from(groups.values());
+        },
+
         animatedCursor() {
             return this.setting.cursor === "animated" || this.setting.scrollMode === ScrollMode.Smooth;
         },
@@ -710,7 +728,7 @@ export default defineComponent({
 
             if (targetBar) {
                 const firstBeat = targetBar.voices[0].beats[0];
-                api.tickPosition = firstBeat.absoluteDisplayStart;
+                this.api.tickPosition = firstBeat.absoluteDisplayStart;
             }
 
             this.startPlayback();
@@ -820,7 +838,6 @@ export default defineComponent({
 
                 // Custom selection handles + "click keeps the selection" behavior
                 this.selectionController = setupSelection(this.$refs.bassTabContainer, this.api);
-
                 // Used for showing/hiding the "Restart" button
                 this.api.playbackRangeChanged.on(() => {
                     this.playbackRange = this.api.playbackRange;
@@ -898,8 +915,8 @@ export default defineComponent({
                     this.api.renderTracks([this.api.score.tracks[trackID]]);
 
                     // Always show tempo automation on the master bar
-                    if (api.score.masterBars.length > 0 && api.score.masterBars[0].tempoAutomations.length > 0) {
-                        api.score.masterBars[0].tempoAutomations[0].isVisible = true;
+                    if (this.api.score.masterBars.length > 0 && this.api.score.masterBars[0].tempoAutomations.length > 0) {
+                        this.api.score.masterBars[0].tempoAutomations[0].isVisible = true;
                     }
 
                     // Get key signature
@@ -945,6 +962,7 @@ export default defineComponent({
                             id: track.index,
                             name,
                             program: track.playbackInfo.program,
+                            isPercussion: track.isPercussion,
                         });
                     });
 
@@ -1549,7 +1567,7 @@ export default defineComponent({
         },
 
         /**
-         * Check if the current track is a drum track (program 0).
+         * Check whether the current track contains percussion staves.
          * this.selectedTrack must be set before calling this function.
          * @returns {boolean}
          */
@@ -1558,7 +1576,7 @@ export default defineComponent({
                 return false;
             }
             const track = this.api.score.tracks[this.selectedTrack];
-            return track.playbackInfo.program === 0;
+            return track?.isPercussion ?? false;
         },
 
         /**
@@ -1592,6 +1610,12 @@ export default defineComponent({
             if (type === "track") {
                 this.showTrackList = !this.showTrackList;
                 this.showAudioList = false;
+                if (this.showTrackList) {
+                    const selectedGroup = this.instrumentGroups.find((group) => group.tracks.some((track) => track.id === this.selectedTrack));
+                    if (selectedGroup) {
+                        this.expandedInstrumentGroups[selectedGroup.key] = true;
+                    }
+                }
             } else if (type === "audio") {
                 this.showAudioList = !this.showAudioList;
                 this.showTrackList = false;
@@ -1650,7 +1674,11 @@ export default defineComponent({
                 return;
             }
             const track = this.api.score.tracks.find(({ index }) => index === trackID);
-            this.api.changeTrackVolume(track, volume / 100);
+            const percentage = Number(volume);
+            if (!track || !Number.isFinite(percentage)) {
+                return;
+            }
+            this.api.changeTrackVolume([track], Math.max(0, Math.min(1000, percentage)) / 100);
         },
 
         edit() {
@@ -1754,13 +1782,16 @@ export default defineComponent({
 </script>
 
 <template>
-    <div class="main" :class='{ "light": this.setting.scoreColor === "light" }'>
+    <div
+        class="main"
+        :class='{ "light": this.setting.scoreColor === "light" }'
+    >
         <h1>{{ tab.title }}</h1>
         <h2>{{ tab.artist }}</h2>
         <div class="key-signature badge bg-secondary" v-if="keySignature && setting.showKeySignature">
             {{ keySignature }}
         </div>
-        <div ref="bassTabContainer" v-pre></div>
+        <div ref="bassTabContainer"></div>
 
         <!-- Just add a margin, don't let youtube player overlay the tab -->
         <div :class='{ "yt-margin": currentAudio.startsWith(`youtube-`) }'></div>
@@ -1769,6 +1800,7 @@ export default defineComponent({
             <div class="scroll">
                 <div class="track-selector selector" ref="trackSelector">
                     <div class="button" @click='showList("track")'>
+                        <font-awesome-icon :icon='["fas", "music"]' />
                         <span v-if="tracks.length > 0">{{ tracks[selectedTrack].name }}</span>
                         <span v-else>Loading...</span>
                     </div>
@@ -1776,12 +1808,13 @@ export default defineComponent({
 
                 <div class="audio-selector selector" ref="audioSelector">
                     <div class="button" @click='showList("audio")'>
+                        <font-awesome-icon :icon='["fas", "headphones"]' />
                         Audio
                     </div>
                 </div>
 
                 <button class="btn btn-warning" @click="playFromHighlightedRange()" v-if="playbackRange">
-                    <font-awesome-icon :icon='["fas", "play"]' />
+                    <font-awesome-icon :icon='["fas", "arrow-rotate-left"]' />
                     Restart
                 </button>
 
@@ -1796,15 +1829,15 @@ export default defineComponent({
                     </span>
                 </button>
                 <button class="btn btn-secondary" @click="loop()" :class="{ active: isLooping }">
-                    <font-awesome-icon :icon='["fas", "check"]' v-if="isLooping" />
+                    <font-awesome-icon :icon='["fas", "repeat"]' />
                     Loop
                 </button>
                 <button class="btn btn-secondary" @click="countIn()" :class='{ active: enableCountIn }'>
-                    <font-awesome-icon :icon='["fas", "check"]' v-if="enableCountIn" />
+                    <font-awesome-icon :icon='["fas", "stopwatch"]' />
                     Count in
                 </button>
                 <button class="btn btn-secondary" @click="metronome()" :class='{ active: enableMetronome, disabled: currentAudio !== "synth" }'>
-                    <font-awesome-icon :icon='["fas", "check"]' v-if="enableMetronome" />
+                    <font-awesome-icon :icon='["fas", "drum"]' />
                     Metronome
                 </button>
 
@@ -1814,6 +1847,7 @@ export default defineComponent({
 
                 <div class="btn-edit" v-if="isLoggedIn">
                     <button class="btn btn-secondary" @click="edit()">
+                        <font-awesome-icon :icon='["fas", "pen"]' />
                         Edit
                     </button>
                 </div>
@@ -1824,12 +1858,29 @@ export default defineComponent({
                     <font-awesome-icon :icon='["fas", "xmark"]' class="me-2 close" @click="showTrackList = false" />
                 </div>
 
-                <div class="track item" v-for="track in tracks" :key="track.id" :class="{ active: selectedTrack === track.id }">
-                    <div class="name" @click="changeTrack(track.id)">{{ track.name }}</div>
-                    <div class="list-button solo" @click="toggleSolo(track.id)" :class="{ active: soloTrackID === track.id }">Solo</div>
-                    <div class="list-button mute" @click="toggleMute(track.id)" :class="{ active: muteTrackList[track.id] }">Mute</div>
-                    <div class="list-button select-percentage">
-                        Volume: <input type="number" min="0" max="1000" step="1" value="100" @change="toggleVolume(track.id, $event.target.value)" /> (%)
+                <div class="track-group" v-for="group in instrumentGroups" :key="group.key" :class="{ grouped: group.tracks.length > 1 }">
+                    <button
+                        v-if="group.tracks.length > 1"
+                        type="button"
+                        class="instrument-group-toggle"
+                        :aria-expanded="!!expandedInstrumentGroups[group.key]"
+                        :aria-controls="`instrument-group-${group.key.replaceAll(' ', '-')}`"
+                        @click="expandedInstrumentGroups[group.key] = !expandedInstrumentGroups[group.key]"
+                        @keydown.stop
+                        @keyup.stop
+                    >
+                        <span class="group-chevron" aria-hidden="true">{{ expandedInstrumentGroups[group.key] ? "▾" : "▸" }}</span>
+                        {{ group.name }} ({{ group.tracks.length }})
+                    </button>
+                    <div :id="`instrument-group-${group.key.replaceAll(' ', '-')}`" v-show="group.tracks.length === 1 || expandedInstrumentGroups[group.key]">
+                        <div class="track item" v-for="track in group.tracks" :key="track.id" :class="{ active: selectedTrack === track.id }">
+                            <div class="name" @click="changeTrack(track.id)">{{ track.name }}</div>
+                            <div class="list-button solo" @click="toggleSolo(track.id)" :class="{ active: soloTrackID === track.id }">Solo</div>
+                            <div class="list-button mute" @click="toggleMute(track.id)" :class="{ active: muteTrackList[track.id] }">Mute</div>
+                            <div class="list-button select-percentage">
+                                Volume: <input type="number" min="0" max="1000" step="1" value="100" @change="toggleVolume(track.id, $event.target.value)" /> (%)
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1892,7 +1943,7 @@ export default defineComponent({
 <style scoped lang="scss">
 @import "../styles/vars.scss";
 
-$toolbar-height: 60px;
+$toolbar-height: 88px;
 $youtube-height: 200px;
 
 // Light Score
@@ -1919,16 +1970,15 @@ $youtube-height: 200px;
 }
 
 .toolbar {
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid #3c3b40;
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
     z-index: 1000;
+    pointer-events: none;
 
     .light & {
-        background-color: rgba(33, 37, 41, 0.8);
+        color: #edf2ed;
     }
 
     &.auto-hide {
@@ -1942,26 +1992,94 @@ $youtube-height: 200px;
 
     // Allow horizontal scroll
     .scroll {
-        padding: 8px 15px;
+        width: max-content;
+        max-width: calc(100vw - 32px);
+        margin: 0 auto 14px;
+        padding: 10px 14px;
         display: flex;
         align-items: center;
-        flex-grow: 4;
-        column-gap: 10px;
+        column-gap: 8px;
+        overflow-x: auto;
+        pointer-events: auto;
+        border: 1px solid rgba(200, 241, 105, 0.18);
+        border-radius: 22px;
+        background: rgba(21, 25, 27, 0.92);
+        box-shadow: 0 12px 38px rgba(0, 0, 0, 0.42), 0 0 28px rgba(200, 241, 105, 0.055);
+        backdrop-filter: blur(18px);
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
 
         .btn-edit {
-            flex-grow: 1;
-            text-align: right;
+            margin-left: 4px;
         }
 
         .button,
         .btn {
-            height: 44px;
+            height: 42px;
             white-space: nowrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 17px;
+            border-radius: 999px;
+            font-size: 0.88rem;
+        }
+
+        .btn-secondary,
+        .btn-warning {
+            --bs-btn-color: #d6dfda;
+            --bs-btn-bg: #252c2d;
+            --bs-btn-border-color: rgba(255, 255, 255, 0.08);
+            --bs-btn-hover-color: #eff5eb;
+            --bs-btn-hover-bg: #333d3b;
+            --bs-btn-hover-border-color: rgba(200, 241, 105, 0.28);
+            --bs-btn-active-color: #d6ff90;
+            --bs-btn-active-bg: rgba(200, 241, 105, 0.14);
+            --bs-btn-active-border-color: rgba(200, 241, 105, 0.38);
+        }
+
+        .btn-secondary.active {
+            color: #d6ff90;
+            background: rgba(200, 241, 105, 0.14);
+            border-color: rgba(200, 241, 105, 0.38);
+        }
+
+        .btn-warning {
+            --bs-btn-color: #f1dcae;
+            --bs-btn-hover-color: #fff0c7;
         }
 
         .btn-secondary {
             &.active {
-                //background-color: lighten($primary, 10%);
+                box-shadow: 0 0 18px rgba(200, 241, 105, 0.08);
+            }
+        }
+
+        .selector .button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            max-width: 240px;
+            height: 42px;
+            overflow: hidden;
+            padding: 0 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            background: #252c2d;
+            color: #d6dfda;
+            text-overflow: ellipsis;
+
+            &:hover {
+                background: #333d3b;
+                border-color: rgba(200, 241, 105, 0.28);
             }
         }
 
@@ -1974,6 +2092,7 @@ $youtube-height: 200px;
     }
 
     .player-container {
+        pointer-events: auto;
         position: absolute;
         bottom: 100%;
         right: 0;
@@ -2027,79 +2146,111 @@ $padding: 20px;
 .selector {
     .button {
         cursor: pointer;
-        padding: 10px 15px;
-        border-radius: 3px;
-        background-color: $color;
         user-select: none;
         transition: background-color 0.2s;
         white-space: nowrap;
-
-        &:hover {
-            background-color: lighten($color, 10%);
-        }
     }
 }
 
 .list {
     position: absolute;
-    background-color: $color;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 3px;
-    bottom: $toolbar-height;
-    left: 15px;
-    min-width: 400px;
-    overflow: scroll;
+    width: min(440px, calc(100vw - 32px));
+    background: rgba(22, 27, 28, 0.97);
+    border: 1px solid rgba(200, 241, 105, 0.18);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.48), 0 0 26px rgba(200, 241, 105, 0.05);
+    backdrop-filter: blur(18px);
+    border-radius: 16px;
+    bottom: calc($toolbar-height + 12px);
+    left: 16px;
+    overflow: auto;
     max-height: calc(100vh - 90px);
+    scrollbar-width: thin;
+    scrollbar-color: #465044 transparent;
 
-    // TODO: No matter how big it is, the tab cursor (z-index: 1000) is always on top of it for unknown reason.
-    z-index: 1;
+    pointer-events: auto;
+    z-index: 1001;
 
     .list-header {
         position: sticky;
         top: 0;
-        background-color: $color;
-        border-bottom: 1px solid darken($color, 5%);
+        background: rgba(22, 27, 28, 0.97);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 16px 16px 0 0;
     }
 
     .item {
         cursor: pointer;
         display: flex;
         align-items: center;
-        border-bottom: 1px solid darken($color, 5%);
+        gap: 8px;
+        min-height: 56px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+        transition: background-color 0.16s ease;
 
         &.active {
-            background-color: lighten($color, 8%);
+            background-color: rgba(200, 241, 105, 0.1);
+        }
+
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.045);
         }
 
         .name {
             flex-grow: 1;
-            font-weight: bold;
-            padding: $padding;
-            height: 100%;
-            border-right: 1px solid darken($color, 5%);
-
-            &:hover {
-                background-color: lighten($color, 2%);
-            }
+            padding: 14px 16px;
+            color: #e6eee8;
+            font-weight: 550;
         }
     }
 }
 
 .track-list {
+    .instrument-group-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 10px 16px;
+        border: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        background: #252c2d;
+        color: #d6dfda;
+        font: inherit;
+        text-align: left;
+
+        &:hover {
+            background: #333d3b;
+        }
+
+        &:focus-visible {
+            outline: 2px solid #c8f169;
+            outline-offset: -2px;
+        }
+    }
+
+    .grouped .track .name {
+        padding-left: 24px;
+    }
+
     .track {
         .list-button {
-            background-color: lighten($color, 10%);
-            border-right: 1px solid darken($color, 5%);
-            padding: $padding;
-            height: 100%;
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            background-color: #252c2d;
+            color: #cbd6cf;
+            font-size: 0.82rem;
+            transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 
             &:hover {
-                background-color: lighten($primary, 5%);
+                border-color: rgba(200, 241, 105, 0.32);
+                background-color: #333d3b;
             }
 
             &.active {
-                background-color: lighten($primary, 8%);
+                border-color: rgba(200, 241, 105, 0.38);
+                background-color: rgba(200, 241, 105, 0.14);
+                color: #d6ff90;
             }
         }
     }
@@ -2134,8 +2285,8 @@ $padding: 20px;
     }
 
     .list {
-        width: 100%;
-        left: 0;
+        width: calc(100vw - 32px);
+        left: 16px;
     }
 
     .toolbar {

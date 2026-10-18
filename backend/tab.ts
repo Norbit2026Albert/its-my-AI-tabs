@@ -263,7 +263,12 @@ export async function fixMissingTab(config: ConfigJSON): Promise<ConfigJSON> {
 export async function replaceTab(tab: TabInfo, tabFileData: Uint8Array, ext: string, originalFilename: string) {
     // Rename old file to filename.ext.timestamp
     const oldFilePath = getTabFilePath(tab);
-    const renamedOldFilePath = oldFilePath + "." + Date.now().toString();
+    let timestamp = Date.now();
+    let renamedOldFilePath = `${oldFilePath}.${timestamp}`;
+    while (await fs.exists(renamedOldFilePath)) {
+        timestamp++;
+        renamedOldFilePath = `${oldFilePath}.${timestamp}`;
+    }
     await Deno.rename(oldFilePath, renamedOldFilePath);
 
     // Write new file
@@ -275,6 +280,52 @@ export async function replaceTab(tab: TabInfo, tabFileData: Uint8Array, ext: str
     tab.filename = filename;
     tab.originalFilename = originalFilename;
     await writeTabInfo(tab);
+}
+
+export async function getTabVersions(tab: TabInfo) {
+    const dirPath = getTabFolderPath(tab);
+    const versions = [];
+    const versionPattern = new RegExp(`^tab\\.(${supportedFormatList.join("|")})\\.(\\d{13})$`, "i");
+
+    for await (const entry of Deno.readDir(dirPath)) {
+        if (!entry.isFile) {
+            continue;
+        }
+        const match = versionPattern.exec(entry.name);
+        if (!match) {
+            continue;
+        }
+
+        const timestamp = Number(match[2]);
+        if (!Number.isSafeInteger(timestamp)) {
+            continue;
+        }
+        const stat = await Deno.stat(path.join(dirPath, entry.name));
+        versions.push({
+            id: entry.name,
+            format: match[1].toLowerCase(),
+            createdAt: new Date(timestamp).toISOString(),
+            size: stat.size,
+        });
+    }
+
+    return versions.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+}
+
+export async function restoreTabVersion(tab: TabInfo, versionId: string) {
+    const match = new RegExp(`^tab\\.(${supportedFormatList.join("|")})\\.(\\d{13})$`, "i").exec(versionId);
+    if (!match || !Number.isSafeInteger(Number(match[2]))) {
+        throw new Error("Invalid tab version");
+    }
+
+    const versionPath = path.join(getTabFolderPath(tab), versionId);
+    if (!await fs.exists(versionPath)) {
+        throw new Error("Tab version not found");
+    }
+
+    const versionData = await Deno.readFile(versionPath);
+    const ext = match[1].toLowerCase();
+    await replaceTab(tab, versionData, ext, tab.originalFilename);
 }
 
 /**

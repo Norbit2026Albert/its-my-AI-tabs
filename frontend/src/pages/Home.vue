@@ -276,8 +276,10 @@ h4 {
 }
 
 .box {
-    background-color: rgba(0, 0, 0, 0.16);
+    background: linear-gradient(155deg, rgba(30, 36, 36, 0.92), rgba(22, 25, 28, 0.88));
     padding: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
 
     // Not Mobile
     .desktop & {
@@ -288,12 +290,12 @@ h4 {
         overflow-y: auto;
 
         &.box-left {
-            border-radius: 25px 0 0 25px;
-            border-right: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 18px 0 0 18px;
+            border-right-color: rgba(255, 255, 255, 0.06);
         }
 
         &.box-right {
-            border-radius: 0 25px 25px 0;
+            border-radius: 0 18px 18px 0;
         }
     }
 
@@ -311,5 +313,17 @@ h4 {
 
 .desktop .home-container {
     padding-right: 26px;
+}
+
+.search-section .input-group {
+    overflow: hidden;
+    border: 1px solid #30383a;
+    border-radius: 10px;
+    background: #191e20;
+
+    .input-group-text,
+    .form-control {
+        border: 0;
+    }
 }
 </style>

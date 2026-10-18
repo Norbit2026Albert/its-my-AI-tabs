@@ -93,10 +93,16 @@ export default defineComponent({
 .tab-item {
     display: flex;
     transition: background-color 0.1s;
-    padding: 10px;
+    padding: 12px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.055);
+    background: rgba(255, 255, 255, 0.025);
+    transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
 
     &:hover {
-        background-color: rgba(0, 0, 0, 0.05);
+        background-color: rgba(200, 241, 105, 0.055);
+        border-color: rgba(200, 241, 105, 0.24);
+        transform: translateY(-1px);
     }
 
     .fav-btn {
@@ -127,6 +133,8 @@ export default defineComponent({
 
         .title {
             font-size: 16px;
+            color: #edf2ed;
+            font-weight: 550;
         }
 
         .artist {
