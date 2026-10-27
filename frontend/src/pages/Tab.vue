@@ -1841,9 +1841,11 @@ export default defineComponent({
                     Metronome
                 </button>
 
-                <div class="select-percentage">
-                    Speed: <input type="number" class="form-control" min="0" max="1000" step="1" v-model="speed" /> (%)
-                </div>
+                <label class="speed-control" title="Playback speed">
+                    <font-awesome-icon :icon='["fas", "gauge-high"]' aria-hidden="true" />
+                    <input type="number" min="20" max="1000" step="1" v-model.number="speed" aria-label="Playback speed percentage" />
+                    <span aria-hidden="true">%</span>
+                </label>
 
                 <div class="btn-edit" v-if="isLoggedIn">
                     <button class="btn btn-secondary" @click="edit()">
@@ -2080,6 +2082,46 @@ $youtube-height: 200px;
             &:hover {
                 background: #333d3b;
                 border-color: rgba(200, 241, 105, 0.28);
+            }
+        }
+
+        .speed-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            height: 42px;
+            padding: 0 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            background: #252c2d;
+            color: #d6dfda;
+            white-space: nowrap;
+
+            &:hover,
+            &:focus-within {
+                border-color: rgba(200, 241, 105, 0.28);
+                background: #333d3b;
+            }
+
+            &:focus-within {
+                box-shadow: 0 0 0 0.2rem rgba(200, 241, 105, 0.12);
+            }
+
+            input {
+                width: 46px;
+                min-width: 0;
+                padding: 0;
+                border: 0;
+                outline: 0;
+                background: transparent;
+                color: inherit;
+                font: inherit;
+                font-variant-numeric: tabular-nums;
+                text-align: right;
+
+                &:focus {
+                    box-shadow: none;
+                }
             }
         }
 

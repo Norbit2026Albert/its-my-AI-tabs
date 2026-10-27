@@ -63,7 +63,7 @@ test.describe("toolbar playback controls", () => {
         await waitForDemoTab(request);
         await openTab(page, "synth");
 
-        const speedInput = page.locator(".select-percentage input");
+        const speedInput = page.getByRole("spinbutton", { name: "Playback speed percentage" });
 
         await speedInput.fill("50");
         await expect.poll(() => page.evaluate(() => window.api.playbackSpeed)).toBeCloseTo(0.5);
